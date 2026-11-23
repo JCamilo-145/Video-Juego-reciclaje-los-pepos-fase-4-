@@ -10,6 +10,7 @@ using UnityEngine.UI;
 /// </summary>
 public class BinCounterLabel : MonoBehaviour
 {
+    [Tooltip("The SortingBin of this bin. If empty, it is searched in the parents and children.")]
     [SerializeField] private SortingBin bin;
     [Tooltip("The object that shows the count (for example the LeanLocalizedText object). Any object with text works.")]
     [SerializeField] private GameObject labelObject;
