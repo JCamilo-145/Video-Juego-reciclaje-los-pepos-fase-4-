@@ -11,24 +11,31 @@ public class VacuumAbsorber : MonoBehaviour
     [Header("References")]
     [Tooltip("Point where the waste flies to. If empty, a point above the player is used.")]
     [SerializeField] private Transform nozzle;
+    [Tooltip("Backpack that stores the absorbed waste. If empty, it is searched on this object, its parents and the scene.")]
     [SerializeField] private BackpackInventory inventory;
 
     [Header("Absorption")]
     [Tooltip("Everything within this distance of the player is absorbed when the key is pressed.")]
     [SerializeField] private float range = 5f;
+    [Tooltip("Speed (meters per second) at which the waste flies to the nozzle.")]
     [SerializeField] private float flySpeed = 14f;
+    [Tooltip("When the waste is this close to the nozzle, it counts as collected.")]
     [SerializeField] private float collectDistance = 0.5f;
     [Tooltip("Tip: create a 'Waste' layer, assign it to all waste and select only that layer here.")]
     [SerializeField] private LayerMask wasteLayers = ~0;
 
     [Header("Input (single press, rebindable)")]
+    [Tooltip("Keyboard key that absorbs all the waste in range with a single press.")]
     [SerializeField] private KeyCode absorbKey = KeyCode.Q;
     [Tooltip("Gamepad alternative: Y / Triangle.")]
     [SerializeField] private KeyCode gamepadAbsorbButton = KeyCode.JoystickButton3;
 
     [Header("Feedback")]
+    [Tooltip("Looping suction sound, played while waste is flying to the nozzle.")]
     [SerializeField] private AudioSource suctionLoop;
+    [Tooltip("Sound played each time a piece reaches the nozzle.")]
     [SerializeField] private AudioSource collectSound;
+    [Tooltip("Particle effect played while waste is flying to the nozzle.")]
     [SerializeField] private ParticleSystem suctionEffect;
 
     private readonly Collider[] hits = new Collider[128];
@@ -67,115 +74,4 @@ public class VacuumAbsorber : MonoBehaviour
         UpdateFeedback();
     }
 
-    private void StartAbsorbing()
-    {
-        if (inventory == null) return;
-
-        int count = Physics.OverlapSphereNonAlloc(
-            transform.position, range, hits, wasteLayers, QueryTriggerInteraction.Collide);
-
-        for (int i = 0; i < count; i++)
-        {
-            WasteItem item = hits[i].GetComponentInParent<WasteItem>();
-            if (item == null || item.IsCollected) continue;
-
-            // If that compartment is full, the item stays where it is.
-            if (!inventory.TryStore(item.Type)) continue;
-
-            item.IsCollected = true;
-            Vector3 centerOffset = GetVisualCenter(item) - item.transform.position;
-            PrepareToFly(item);
-            flyingItems.Add(new FlyingItem { Item = item, CenterOffset = centerOffset });
-        }
-    }
-
-    // Center of all the renderers of the item, so the model itself (not its pivot) reaches the nozzle.
-    private static Vector3 GetVisualCenter(WasteItem item)
-    {
-        Renderer[] renderers = item.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return item.transform.position;
-
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            bounds.Encapsulate(renderers[i].bounds);
-        }
-
-        return bounds.center;
-    }
-
-    private void PrepareToFly(WasteItem item)
-    {
-        // Colliders off so the flying item does not push the player or get stuck.
-        foreach (Collider itemCollider in item.GetComponentsInChildren<Collider>())
-        {
-            itemCollider.enabled = false;
-        }
-
-        item.Body.isKinematic = true;
-    }
-
-    private void MoveFlyingItems()
-    {
-        Vector3 target = GetTargetPosition();
-
-        for (int i = flyingItems.Count - 1; i >= 0; i--)
-        {
-            FlyingItem flying = flyingItems[i];
-            if (flying.Item == null)
-            {
-                flyingItems.RemoveAt(i);
-                continue;
-            }
-
-            // Move the pivot so that the visual center of the model flies to the target.
-            Transform itemTransform = flying.Item.transform;
-            Vector3 goal = target - flying.CenterOffset;
-            itemTransform.position = Vector3.MoveTowards(
-                itemTransform.position, goal, flySpeed * Time.deltaTime);
-
-            if (Vector3.Distance(itemTransform.position, goal) <= collectDistance)
-            {
-                if (collectSound != null && collectSound.clip != null)
-                {
-                    collectSound.PlayOneShot(collectSound.clip);
-                }
-
-                Destroy(flying.Item.gameObject);
-                flyingItems.RemoveAt(i);
-            }
-        }
-    }
-
-    private Vector3 GetTargetPosition()
-    {
-        return nozzle != null ? nozzle.position : transform.position + Vector3.up;
-    }
-
-    private void UpdateFeedback()
-    {
-        bool isActive = flyingItems.Count > 0;
-
-        if (suctionLoop != null)
-        {
-            if (isActive && !suctionLoop.isPlaying) suctionLoop.Play();
-            else if (!isActive && suctionLoop.isPlaying) suctionLoop.Stop();
-        }
-
-        if (suctionEffect != null)
-        {
-            if (isActive && !suctionEffect.isPlaying) suctionEffect.Play();
-            else if (!isActive && suctionEffect.isPlaying) suctionEffect.Stop();
-        }
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, range);
-
-        // Yellow sphere: the point where the absorbed waste flies to.
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawSphere(GetTargetPosition(), 0.12f);
-    }
-}
+    private void
