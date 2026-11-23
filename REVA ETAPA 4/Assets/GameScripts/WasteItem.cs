@@ -19,7 +19,10 @@ public enum WasteType
 [RequireComponent(typeof(Rigidbody))]
 public class WasteItem : MonoBehaviour
 {
+    [Tooltip("Type of waste. The bin only accepts items of its own type.")]
     [SerializeField] private WasteType wasteType;
+
+    [Tooltip("If enabled, the item stays still until the vacuum absorbs it.")]
     [SerializeField] private bool freezeUntilAbsorbed = true;
 
     public WasteType Type => wasteType;
