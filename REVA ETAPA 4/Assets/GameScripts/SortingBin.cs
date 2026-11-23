@@ -12,9 +12,11 @@ using UnityEngine;
 /// </summary>
 public class SortingBin : MonoBehaviour
 {
+    [Tooltip("The only type of waste this bin accepts.")]
     [SerializeField] private WasteType acceptedType;
     [Tooltip("How close (in meters) the player must be to the bin model to deposit.")]
     [SerializeField] private float depositRadius = 3f;
+    [Tooltip("Points added to the score for each correctly deposited item.")]
     [SerializeField] private int pointsPerItem = 10;
     [Tooltip("Seconds between each deposited item, so the sound is heard once per piece.")]
     [SerializeField] private float depositInterval = 0.25f;
@@ -32,8 +34,11 @@ public class SortingBin : MonoBehaviour
     [SerializeField] private KeyCode gamepadDepositButton = KeyCode.JoystickButton2;
 
     [Header("Feedback")]
+    [Tooltip("Plays the deposit sounds. If empty, the AudioSource on this object is used.")]
     [SerializeField] private AudioSource audioSource;
+    [Tooltip("Sound played for each correctly deposited item.")]
     [SerializeField] private AudioClip correctClip;
+    [Tooltip("Sound played when the player brings waste this bin does not accept.")]
     [SerializeField] private AudioClip wrongClip;
     [Tooltip("Plays the wrong clip when the player arrives carrying waste but nothing this bin accepts.")]
     [SerializeField] private bool playWrongBinSound = false;
@@ -90,121 +95,4 @@ public class SortingBin : MonoBehaviour
         if (inventory == null) return;
 
         float distance = DistanceToPlayer();
-        bool inRange = distance <= depositRadius;
-
-        if (logDebug && Time.time >= nextDistanceLogTime && distance <= depositRadius * 3f)
-        {
-            nextDistanceLogTime = Time.time + 1f;
-            Debug.Log("SortingBin '" + name + "' distance to player: " + distance.ToString("F1") +
-                      " m (radius " + depositRadius + ")", this);
-        }
-
-        if (inRange && !playerInRange)
-        {
-            OnPlayerArrived();
-        }
-
-        playerInRange = inRange;
-
-        if (!inRange) return;
-
-        // Pressing the key near the bin starts a deposit even if auto deposit is off.
-        if (Input.GetKeyDown(depositKey) || Input.GetKeyDown(gamepadDepositButton))
-        {
-            keyHeldMode = true;
-        }
-
-        if (!autoDeposit && !keyHeldMode) return;
-        if (Time.time < nextDepositTime) return;
-        if (limitToCapacity && DepositedCount >= binCapacity) return; // Bin is full.
-
-        if (!inventory.TryTake(acceptedType))
-        {
-            keyHeldMode = false; // Nothing left of this type.
-            return;
-        }
-
-        nextDepositTime = Time.time + depositInterval;
-        DepositedCount++;
-        OnCountChanged?.Invoke(DepositedCount, binCapacity);
-
-        PlaySound(correctClip);
-        OnScoreChanged?.Invoke(pointsPerItem);
-        OnWasteDeposited?.Invoke(true, acceptedType);
-    }
-
-    // Distance on the ground plane from the player to the nearest point of this bin's model.
-    private float DistanceToPlayer()
-    {
-        Vector3 player = inventory.transform.position;
-
-        if (renderers != null && renderers.Length > 0)
-        {
-            Bounds bounds = new Bounds(renderers[0].bounds.center, Vector3.zero);
-            foreach (Renderer r in renderers)
-            {
-                bounds.Encapsulate(r.bounds);
-            }
-
-            Vector3 closest = bounds.ClosestPoint(new Vector3(player.x, bounds.center.y, player.z));
-            Vector3 offset = player - closest;
-            offset.y = 0f;
-            return offset.magnitude;
-        }
-
-        Vector3 fallback = player - transform.position;
-        fallback.y = 0f;
-        return fallback.magnitude;
-    }
-
-    private void OnPlayerArrived()
-    {
-        if (logDebug)
-        {
-            Debug.Log("Player reached bin '" + name + "' (accepts " + acceptedType + ") | Backpack: " +
-                      DescribeBackpack(), this);
-        }
-
-        if (playWrongBinSound &&
-            inventory.GetAmount(acceptedType) == 0 &&
-            CarriesAnyWaste())
-        {
-            PlaySound(wrongClip);
-        }
-    }
-
-    private bool CarriesAnyWaste()
-    {
-        foreach (WasteType type in Enum.GetValues(typeof(WasteType)))
-        {
-            if (inventory.GetAmount(type) > 0) return true;
-        }
-
-        return false;
-    }
-
-    private string DescribeBackpack()
-    {
-        StringBuilder builder = new StringBuilder();
-        foreach (WasteType type in Enum.GetValues(typeof(WasteType)))
-        {
-            builder.Append(type).Append(' ').Append(inventory.GetAmount(type)).Append("  ");
-        }
-
-        return builder.ToString();
-    }
-
-    private void PlaySound(AudioClip clip)
-    {
-        if (audioSource != null && clip != null)
-        {
-            audioSource.PlayOneShot(clip);
-        }
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, depositRadius);
-    }
-}
+        bool inRange = distance
